@@ -1,0 +1,40 @@
+{
+	"groups": [
+		{
+			"keys": "bg_jpg,egret_icon_png,description_json,bird_texture_png,bird_json,bird_texture_json",
+			"name": "preload"
+		}
+	],
+	"resources": [
+		{
+			"url": "assets/bg.jpg",
+			"type": "image",
+			"name": "bg_jpg"
+		},
+		{
+			"url": "assets/egret_icon.png",
+			"type": "image",
+			"name": "egret_icon_png"
+		},
+		{
+			"url": "config/description.json",
+			"type": "json",
+			"name": "description_json"
+		},
+		{
+			"url": "spirts/bird/texture.png",
+			"type": "image",
+			"name": "bird_texture_png"
+		},
+		{
+			"url": "spirts/bird/bird.json",
+			"type": "json",
+			"name": "bird_json"
+		},
+		{
+			"url": "spirts/bird/texture.json",
+			"type": "json",
+			"name": "bird_texture_json"
+		}
+	]
+}
