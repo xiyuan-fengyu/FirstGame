@@ -27,11 +27,18 @@ class GameScene extends egret.DisplayObjectContainer {
         this.addChild(bg);
 
         //创建一个地板
-        this.createRect(bg.width, 50, this.stage.stageWidth / 2, this.stage.stageHeight - 25, 0);
+        this.createRect(bg.width, 50, bg.width / 2, this.stage.stageHeight - 25, 0);
 
-        // this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN, this.onTouch, this);
+        this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN, this.onTouch, this);
 
         this.initPlayer();
+
+
+        this.createPath([
+            [0, 0],
+            [100, 0],
+            [100, 100]
+        ], 400, 200, 1);
 
         egret.startTick(this.onUpdate, this);
     }
@@ -118,7 +125,7 @@ class GameScene extends egret.DisplayObjectContainer {
         obj.anchorOffsetY = obj.height / 2;
         obj.x = x;
         obj.y = y;
-        obj.graphics.beginFill(0xffffff, 0);
+        obj.graphics.beginFill(0xffffff, 0.2);
         obj.graphics.drawRect(0, 0, obj.width, obj.height);
         obj.graphics.endFill();
 
@@ -147,7 +154,7 @@ class GameScene extends egret.DisplayObjectContainer {
         obj.anchorOffsetY = radius;
         obj.x = x;
         obj.y = y;
-        obj.graphics.beginFill(0xffffff, 0);
+        obj.graphics.beginFill(0xffffff, 0.2);
         obj.graphics.drawCircle(radius, radius, radius);
         obj.graphics.endFill();
 
@@ -161,6 +168,42 @@ class GameScene extends egret.DisplayObjectContainer {
         rigidbody.displays = [obj];
 
         this.addChild(obj);
+        this.world.addBody(rigidbody);
+
+        return rigidbody;
+    }
+
+    private createPath(path, x: number, y: number, mass: number): p2.Body {
+        var display = new egret.Shape();
+        display.graphics.beginFill(0xffffff);
+        for (let i = 0, len = path.length; i <= len; i++) {
+            let node = path[i == len ? 0: i];
+            if (i == 0) {
+                display.graphics.moveTo(node[0], node[1]);
+            }
+            else {
+                display.graphics.lineTo(node[0], node[1]);
+            }
+        }
+        display.graphics.endFill();
+        display.anchorOffsetX = display.width / 2;
+        display.anchorOffsetY = display.height / 2;
+        display.x = x;
+        display.y = y;
+
+        path.forEach(node => {
+            node[0] /= this.factor;
+            node[1] = (display.width - node[1]) / this.factor;
+        });
+
+        var rigidbody = new p2.Body({
+            mass : 1,
+            position: [display.x / this.factor, (this.stage.stageHeight - display.y) / this.factor]
+        });
+        rigidbody.fromPolygon(path);
+        rigidbody.displays = [display];
+
+        this.addChild(display);
         this.world.addBody(rigidbody);
 
         return rigidbody;
@@ -180,7 +223,8 @@ class GameScene extends egret.DisplayObjectContainer {
         this.addChild(display);
 
         let rigidbody = new p2.Body({
-            mass: mass
+            mass: mass,
+            fixedRotation: true
         });
 
         let bodyShape;
