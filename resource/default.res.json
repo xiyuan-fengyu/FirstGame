@@ -1,7 +1,7 @@
 {
 	"groups": [
 		{
-			"keys": "bg_jpg,egret_icon_png,description_json,bird_texture_png,bird_json,bird_texture_json",
+			"keys": "egret_icon_png,description_json,bird_tex_png,bird_ske_json,bird_tex_json",
 			"name": "preload"
 		}
 	],
@@ -22,19 +22,19 @@
 			"name": "description_json"
 		},
 		{
-			"url": "spirts/bird/texture.png",
+			"url": "bird/bird_tex.png",
 			"type": "image",
-			"name": "bird_texture_png"
+			"name": "bird_tex_png"
 		},
 		{
-			"url": "spirts/bird/bird.json",
+			"url": "bird/bird_ske.json",
 			"type": "json",
-			"name": "bird_json"
+			"name": "bird_ske_json"
 		},
 		{
-			"url": "spirts/bird/texture.json",
+			"url": "bird/bird_tex.json",
 			"type": "json",
-			"name": "bird_texture_json"
+			"name": "bird_tex_json"
 		}
 	]
 }
