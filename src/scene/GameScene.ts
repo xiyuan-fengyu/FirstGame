@@ -1,5 +1,4 @@
-import DisplayObject = egret.DisplayObject;
-import EgretArmatureDisplay = dragonBones.EgretArmatureDisplay;
+import Bitmap = egret.Bitmap;
 /**
  * Created by xiyuan_fengyu on 2017/3/27.
  */
@@ -13,26 +12,70 @@ class GameScene extends egret.DisplayObjectContainer {
 
     private dragonBonesFactory = new dragonBones.EgretFactory();
 
+    private player: p2.Body;
+
     $onAddToStage(stage: egret.Stage, nestLevel: number): void {
         super.$onAddToStage(stage, nestLevel);
 
         this.world = new p2.World();
         this.world.sleepMode = p2.World.BODY_SLEEPING;
 
+        //绘制背景
+        let bg = new Bitmap();
+        bg.height = this.stage.stageHeight;
+        bg.texture = RES.getRes("bg_jpg");
+        this.addChild(bg);
 
         //创建一个地板
-        this.createRect(this.stage.stageWidth, 50, this.stage.stageWidth / 2, this.stage.stageHeight - 25, 0);
+        this.createRect(bg.width, 50, this.stage.stageWidth / 2, this.stage.stageHeight - 25, 0);
 
         // this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN, this.onTouch, this);
 
-        //通过DragonBones动画创建spirt
-        let bird = this.createSpirtByName("bird", {
-            width: 64,
-            height: 60
-        }, 600, 100, 1);
-        bird.displays[0]["animation"].play("fly_forw", 0);
+        this.initPlayer();
 
         egret.startTick(this.onUpdate, this);
+    }
+
+    private initPlayer() {
+        //通过DragonBones动画创建spirt
+        this.player = this.createSpirtByName("bird", {
+            slot: "body"
+        }, this.stage.stageWidth / 4, this.stage.stageWidth / 2, 1);
+        this.player.displays[0]["animation"].play("fly", 0);
+
+        this.player["key"] = {};
+        this.player["update"] = function () {
+            var key = this["key"];
+            if (key.ArrowLeft) {
+                this.force[0] = -15;
+                this.displays[0].scaleX = -1;
+            }
+            else if (key.ArrowRight) {
+                this.force[0] = 15;
+                this.displays[0].scaleX = 1;
+            }
+            else {
+                this.force[0] = 0;
+            }
+
+            if (key.ArrowDown) {
+                this.force[1] = -20;
+            }
+            else if (key.ArrowUp) {
+                this.force[1] = 20;
+            }
+            else {
+                this.force[1] = 0;
+            }
+
+        };
+
+        KeyEventListener.add(KeyEventType.KEY_DOWN, ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"], event => {
+            this.player["key"][event.key] = true;
+        }, this);
+        KeyEventListener.add(KeyEventType.KEY_UP, ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"], event => {
+            this.player["key"][event.key] = false;
+        }, this);
     }
 
     private onTouch(event: egret.TouchEvent) {
@@ -48,15 +91,21 @@ class GameScene extends egret.DisplayObjectContainer {
     private onUpdate(timestamp: number): boolean {
         let delta = this.lastTimestamp == 0 ? 0 : (timestamp - this.lastTimestamp);
         this.lastTimestamp = timestamp;
-        this.world.step(delta / 1000);
 
+        let oldX = this.player.displays[0].x;
+        this.player["update"]();
+
+        //更新物理世界
+        this.world.step(delta / 1000);
         this.world.bodies.forEach(body => {
             body.displays.forEach(display => {
-                display.x = body.position[0] * this.factor;
-                display.y = this.stage.stageHeight - body.position[1] * this.factor;
+                display.x = body.position[0] * this.factor - (body["offsetX"] || 0);
+                display.y = this.stage.stageHeight - body.position[1] * this.factor - (body["offsetY"] || 0);
                 display.rotation = 360 - body.angle * 180 / Math.PI;
             });
         });
+
+        this.x -= this.player.displays[0].x - oldX;
 
         return true;
     }
@@ -69,7 +118,7 @@ class GameScene extends egret.DisplayObjectContainer {
         obj.anchorOffsetY = obj.height / 2;
         obj.x = x;
         obj.y = y;
-        obj.graphics.beginFill(0xffffff);
+        obj.graphics.beginFill(0xffffff, 0);
         obj.graphics.drawRect(0, 0, obj.width, obj.height);
         obj.graphics.endFill();
 
@@ -98,7 +147,7 @@ class GameScene extends egret.DisplayObjectContainer {
         obj.anchorOffsetY = radius;
         obj.x = x;
         obj.y = y;
-        obj.graphics.beginFill(0xffffff);
+        obj.graphics.beginFill(0xffffff, 0);
         obj.graphics.drawCircle(radius, radius, radius);
         obj.graphics.endFill();
 
@@ -117,10 +166,10 @@ class GameScene extends egret.DisplayObjectContainer {
         return rigidbody;
     }
 
-    private createSpirtByName(name: string, bodyShapeConfig: any, x: number, y: number, mass): p2.Body {
-        let boneJson = RES.getRes(name + "_json");
-        let textureJson = RES.getRes(name + "_texture_json");
-        let texture = RES.getRes(name + "_texture_png");
+    private createSpirtByName(name: string, bodyConfig: any, x: number, y: number, mass): p2.Body {
+        let boneJson = RES.getRes(name + "_ske_json");
+        let textureJson = RES.getRes(name + "_tex_json");
+        let texture = RES.getRes(name + "_tex_png");
 
         this.dragonBonesFactory.parseDragonBonesData(boneJson);
         this.dragonBonesFactory.parseTextureAtlasData(textureJson, texture);
@@ -131,24 +180,42 @@ class GameScene extends egret.DisplayObjectContainer {
         this.addChild(display);
 
         let rigidbody = new p2.Body({
-            mass: mass,
-            position: [x / this.factor, (this.stage.stageHeight - y) / this.factor]
+            mass: mass
         });
+
         let bodyShape;
-        if (bodyShapeConfig) {
-            if (bodyShapeConfig.width && bodyShapeConfig.height) {
+        bodyConfig.offsetX = bodyConfig.offsetX || 0;
+        bodyConfig.offsetY = bodyConfig.offsetY || 0;
+        if (bodyConfig) {
+            if (bodyConfig.width && bodyConfig.height) {
                 bodyShape = new p2.Box({
-                    width: bodyShapeConfig.width / this.factor,
-                    height: bodyShapeConfig.height / this.factor,
+                    width: bodyConfig.width / this.factor,
+                    height: bodyConfig.height / this.factor,
                 });
             }
-            else if (bodyShapeConfig.radius) {
+            else if (bodyConfig.radius) {
                 bodyShape = new p2.Circle();
-                bodyShape.radius = bodyShapeConfig.radius;
+                bodyShape.radius = bodyConfig.radius;
             }
+            else if (bodyConfig.slot) {
+                let slot = display.armature.getSlot(bodyConfig.slot);
+                let transform = slot.global;
+                let bitmap = slot.display;
+                bodyShape = new p2.Box({
+                    width: bitmap.width * transform.scaleX / this.factor,
+                    height: bitmap.height * transform.scaleY / this.factor,
+                });
+                bodyConfig.offsetX = transform.x;
+                bodyConfig.offsetY = transform.y;
+            }
+
             rigidbody.addShape(bodyShape);
             rigidbody.displays = [display];
         }
+
+        rigidbody["offsetX"] = bodyConfig.offsetX;
+        rigidbody["offsetY"] = bodyConfig.offsetY;
+        rigidbody.position = [(x + bodyConfig.offsetX) / this.factor, (this.stage.stageHeight - y - bodyConfig.offsetY) / this.factor];
 
         this.addChild(display);
         this.world.addBody(rigidbody);
