@@ -2,7 +2,7 @@ import Bitmap = egret.Bitmap;
 /**
  * Created by xiyuan_fengyu on 2017/3/27.
  */
-class GameScene extends egret.DisplayObjectContainer {
+class GameScene extends egret.Sprite {
 
     private world: p2.World;
 
@@ -13,6 +13,10 @@ class GameScene extends egret.DisplayObjectContainer {
     private dragonBonesFactory = new dragonBones.EgretFactory();
 
     private player: p2.Body;
+
+    private debugDraw: p2DebugDraw;
+
+    private curPath = [];
 
     $onAddToStage(stage: egret.Stage, nestLevel: number): void {
         super.$onAddToStage(stage, nestLevel);
@@ -29,26 +33,47 @@ class GameScene extends egret.DisplayObjectContainer {
         //创建一个地板
         this.createRect(bg.width, 50, bg.width / 2, this.stage.stageHeight - 25, 0);
 
-        this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN, this.onTouch, this);
+        this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN, (event: egret.TouchEvent) => {
+            this.curPath = [[event.stageX, event.stageY]];
+        }, this);
+        this.stage.addEventListener(egret.TouchEvent.TOUCH_MOVE, (event: egret.TouchEvent) => {
+            this.curPath.push([event.stageX, event.stageY]);
+        }, this);
+        this.stage.addEventListener(egret.TouchEvent.TOUCH_END, (event: egret.TouchEvent) => {
+            if (this.curPath.length < 3) {
+                this.curPath = [
+                    [-200, 200],
+                    [-200, 0],
+                    [200, 0],
+                    [200, 200],
+                    [100, 100]
+                ];
+                let temp = this.curPath.forEach(node => {
+                    node[0] += event.stageX;
+                    node[1] += event.stageY;
+                });
+                setTimeout(function () {
+                    console.log(temp);
+                }, 3000);
+            }
+            this.createByPath(this.curPath, null, null, 10);
+        }, this);
 
         this.initPlayer();
 
-
-        this.createPath([
-            [0, 0],
-            [100, 0],
-            [100, 100]
-        ], 400, 200, 1);
+        this.debugDraw = new p2DebugDraw(this.world, this);
 
         egret.startTick(this.onUpdate, this);
     }
 
     private initPlayer() {
         //通过DragonBones动画创建spirt
-        this.player = this.createSpirtByName("bird", {
-            slot: "body"
-        }, this.stage.stageWidth / 4, this.stage.stageWidth / 2, 1);
-        this.player.displays[0]["animation"].play("fly", 0);
+        // this.player = this.createSpirtByName("bird", {
+        //     slot: "body"
+        // }, this.stage.stageWidth / 4, this.stage.stageWidth / 2, 1);
+        // this.player.displays[0]["animation"].play("fly", 0);
+
+        this.player = this.createRect(20, 20, 100, 100, 1);
 
         this.player["key"] = {};
         this.player["update"] = function () {
@@ -88,10 +113,10 @@ class GameScene extends egret.DisplayObjectContainer {
     private onTouch(event: egret.TouchEvent) {
         let random = Math.random();
         if (random < 0.5) {
-            this.createRect(100, 40, event.stageX, event.stageY, 1);
+            this.createRect(100, 40, event.stageX - this.x, event.stageY - this.y, 1);
         }
         else {
-            this.createCircle(50, event.stageX, event.stageY, 1);
+            this.createCircle(50, event.stageX - this.x, event.stageY - this.y, 1);
         }
     }
 
@@ -106,13 +131,15 @@ class GameScene extends egret.DisplayObjectContainer {
         this.world.step(delta / 1000);
         this.world.bodies.forEach(body => {
             body.displays.forEach(display => {
-                display.x = body.position[0] * this.factor - (body["offsetX"] || 0);
-                display.y = this.stage.stageHeight - body.position[1] * this.factor - (body["offsetY"] || 0);
+                display.x = body.position[0] * this.factor;
+                display.y = this.stage.stageHeight - body.position[1] * this.factor;
                 display.rotation = 360 - body.angle * 180 / Math.PI;
             });
         });
 
-        this.x -= this.player.displays[0].x - oldX;
+        // this.x -= this.player.displays[0].x - oldX;
+
+        this.debugDraw.drawDebug();
 
         return true;
     }
@@ -125,7 +152,7 @@ class GameScene extends egret.DisplayObjectContainer {
         obj.anchorOffsetY = obj.height / 2;
         obj.x = x;
         obj.y = y;
-        obj.graphics.beginFill(0xffffff, 0.2);
+        obj.graphics.beginFill(0xffffff, 0.5);
         obj.graphics.drawRect(0, 0, obj.width, obj.height);
         obj.graphics.endFill();
 
@@ -173,10 +200,35 @@ class GameScene extends egret.DisplayObjectContainer {
         return rigidbody;
     }
 
-    private createPath(path, x: number, y: number, mass: number): p2.Body {
+    private createByPath(path, x: number, y: number, mass: number): p2.Body {
         var display = new egret.Shape();
         display.graphics.beginFill(0xffffff);
-        for (let i = 0, len = path.length; i <= len; i++) {
+
+        let minX = Number.MAX_VALUE;
+        let maxX = Number.MIN_VALUE;
+        let minY = Number.MAX_VALUE;
+        let maxY = Number.MIN_VALUE;
+        let centerX = 0;
+        let centerY = 0;
+        let len = path.length;
+        path.forEach(node => {
+            minX = minX <= node[0] ? minX : node[0];
+            maxX = maxX >= node[0] ? maxX : node[0];
+            minY = minY <= node[1] ? minY : node[1];
+            maxY = maxY >= node[1] ? maxY : node[1];
+            centerX += node[0];
+            centerY += node[1];
+        });
+        centerX /= len;
+        centerY /= len;
+        let offsetX = centerX - (minX + maxX) / 2;
+        let offsetY = centerY - (minY + maxY) / 2;
+        path.forEach(node => {
+            node[0] -= minX;
+            node[1] -= minY;
+        });
+
+        for (let i = 0; i <= len; i++) {
             let node = path[i == len ? 0: i];
             if (i == 0) {
                 display.graphics.moveTo(node[0], node[1]);
@@ -185,11 +237,8 @@ class GameScene extends egret.DisplayObjectContainer {
                 display.graphics.lineTo(node[0], node[1]);
             }
         }
+
         display.graphics.endFill();
-        display.anchorOffsetX = display.width / 2;
-        display.anchorOffsetY = display.height / 2;
-        display.x = x;
-        display.y = y;
 
         path.forEach(node => {
             node[0] /= this.factor;
@@ -197,12 +246,15 @@ class GameScene extends egret.DisplayObjectContainer {
         });
 
         var rigidbody = new p2.Body({
-            mass : 1,
-            position: [display.x / this.factor, (this.stage.stageHeight - display.y) / this.factor]
+            mass : mass
         });
         rigidbody.fromPolygon(path);
+        display.anchorOffsetX = display.width / 2;
+        display.anchorOffsetY = display.height / 2;
+        display.x = x || centerX;
+        display.y = y || centerY;
+        rigidbody.position = [display.x / this.factor, (this.stage.stageHeight - display.y) / this.factor];
         rigidbody.displays = [display];
-
         this.addChild(display);
         this.world.addBody(rigidbody);
 
@@ -218,8 +270,6 @@ class GameScene extends egret.DisplayObjectContainer {
         this.dragonBonesFactory.parseTextureAtlasData(textureJson, texture);
 
         let display = this.dragonBonesFactory.buildArmatureDisplay(boneJson.armature[0].name);
-        display.x = x;
-        display.y = y;
         this.addChild(display);
 
         let rigidbody = new p2.Body({
@@ -257,9 +307,11 @@ class GameScene extends egret.DisplayObjectContainer {
             rigidbody.displays = [display];
         }
 
-        rigidbody["offsetX"] = bodyConfig.offsetX;
-        rigidbody["offsetY"] = bodyConfig.offsetY;
-        rigidbody.position = [(x + bodyConfig.offsetX) / this.factor, (this.stage.stageHeight - y - bodyConfig.offsetY) / this.factor];
+        display.anchorOffsetX = display.width / 2 - bodyConfig.offsetX;
+        display.anchorOffsetY = display.height / 2 - bodyConfig.offsetY;
+        display.x = x;
+        display.y = y;
+        rigidbody.position = [x / this.factor, (this.stage.stageHeight - y) / this.factor];
 
         this.addChild(display);
         this.world.addBody(rigidbody);

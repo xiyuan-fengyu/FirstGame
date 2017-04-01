@@ -16,6 +16,7 @@ var game_file_list = [
 	"bin-debug/Main.js",
 	"bin-debug/scene/GameScene.js",
 	"bin-debug/util/KeyEventListener.js",
+	"bin-debug/util/p2DebugDraw.js",
 	//----auto game_file_list end----
 ];
 
